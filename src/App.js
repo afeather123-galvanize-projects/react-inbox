@@ -8,66 +8,14 @@ class App extends Component {
 
   state = {
     showForm: false,
-    inbox: [
-      {
-        "id": 1,
-        "subject": "You can't input the protocol without calculating the mobile RSS protocol!",
-        "read": false,
-        "starred": true,
-        "labels": ["dev", "personal"]
-      },
-      {
-        "id": 2,
-        "subject": "connecting the system won't do anything, we need to input the mobile AI panel!",
-        "read": false,
-        "starred": false,
-        "selected": true,
-        "labels": []
-      },
-      {
-        "id": 3,
-        "subject": "Use the 1080p HTTP feed, then you can parse the cross-platform hard drive!",
-        "read": false,
-        "starred": true,
-        "labels": ["dev"]
-      },
-      {
-        "id": 4,
-        "subject": "We need to program the primary TCP hard drive!",
-        "read": true,
-        "starred": false,
-        "selected": true,
-        "labels": []
-      },
-      {
-        "id": 5,
-        "subject": "If we override the interface, we can get to the HTTP feed through the virtual EXE interface!",
-        "read": false,
-        "starred": false,
-        "labels": ["personal"]
-      },
-      {
-        "id": 6,
-        "subject": "We need to back up the wireless GB driver!",
-        "read": true,
-        "starred": true,
-        "labels": []
-      },
-      {
-        "id": 7,
-        "subject": "We need to index the mobile PCI bus!",
-        "read": true,
-        "starred": false,
-        "labels": ["dev", "personal"]
-      },
-      {
-        "id": 8,
-        "subject": "If we connect the sensor, we can get to the HDD port through the redundant IB firewall!",
-        "read": true,
-        "starred": true,
-        "labels": []
-      }
-    ]
+    inbox: []
+  }
+
+  async componentDidMount() {
+    const result = await fetch(`http://localhost:8082/api/messages`)
+    const messages = await result.json()
+    console.log(messages)
+    this.setState({inbox: messages})
   }
 
   render() {
@@ -99,17 +47,30 @@ class App extends Component {
     this.setState({inbox: inbox})
   }
 
-  starMail = (index) => {
-    const mail = {...this.state.inbox[index]}
-    mail.starred = !mail.starred
-    const inbox = [...this.state.inbox]
-    inbox[index] = mail;
-    this.setState({inbox: inbox})
+  starMail = async (index) => {
+    const result = await fetch(`http://localhost:8082/api/messages`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({messageIds: [this.state.inbox[index].id], command: 'star'})
+    })
+    const editedMail = await result.json()
+    console.log(editedMail)
+    this.setState({inbox: editedMail})
   }
 
-  expandMail = (index) => {
+  expandMail = async (index) => {
     const mail = {...this.state.inbox[index]}
     mail.expanded = !mail.expanded
+    const body = {
+      messageIds:[mail.id], 
+      command: 'read',
+      read: true
+    }
+    const result = await fetch(`http://localhost:8082/api/messages`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    })
     mail.read = true
     const inbox = [...this.state.inbox]
     inbox[index] = mail;
@@ -138,55 +99,50 @@ class App extends Component {
     this.setState({inbox: newInbox})
   }
 
-  markAsRead = (read) => {
-    const newInbox = this.state.inbox.map(mail => {
-      if(mail.selected && mail.read !== read) {
-        const newMail = {...mail}
-        newMail.read = read
-        return newMail
-      } else {
-        return mail
-      }
-      
+  markAsRead = async (read) => {
+    const body = {
+      messageIds:this.state.inbox.filter(mail => mail.selected).map(mail => mail.id), 
+      command: 'read',
+      read: read
+    }
+    const result = await fetch(`http://localhost:8082/api/messages`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
     })
+    const newInbox = await result.json()
     this.setState({inbox: newInbox})
   }
 
-  addLabel = (e) => {
-    const label = e.target.value
-    if(label === 'Apply Label') {
-      return;
+  addLabel = async (e) => {
+    const request_body = {
+      messageIds: this.state.inbox.filter(mail => mail.selected).map(mail => mail.id),
+      command: 'addLabel',
+      label: e.target.value
     }
-    const newInbox = this.state.inbox.map(mail => {
-      if(mail.selected) {
-        const labelIndex = mail.labels.indexOf(label)
-        if(labelIndex === -1) {
-          const newMail = {...mail}
-          newMail.labels.push(label)
-          return newMail
-        }
-      }
-      return mail;
+
+    const result = await fetch(`http://localhost:8082/api/messages`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(request_body)
     })
+    const newInbox = await result.json()
     this.setState({inbox: newInbox})
   }
 
-  removeLabel = (e) => {
-    const label = e.target.value
-    if(label === 'Remove Label') {
-      return;
+  removeLabel = async (e) => {
+    const request_body = {
+      messageIds: this.state.inbox.filter(mail => mail.selected).map(mail => mail.id),
+      command: 'removeLabel',
+      label: e.target.value
     }
-    const newInbox = this.state.inbox.map(mail => {
-      if(mail.selected) {
-        const labelIndex = mail.labels.indexOf(label)
-        if(labelIndex !== -1) {
-          const newMail = {...mail}
-          newMail.labels.splice(labelIndex,1)
-          return newMail
-        }
-      }
-      return mail;
+
+    const result = await fetch(`http://localhost:8082/api/messages`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(request_body)
     })
+    const newInbox = await result.json()
     this.setState({inbox: newInbox})
   }
 
@@ -195,7 +151,7 @@ class App extends Component {
     this.setState({inbox: newInbox})
   }
 
-  addMessage = (message) => {
+  addMessage = async (message) => {
     const newMessage = {
       ...message,
       read: false,
@@ -203,8 +159,15 @@ class App extends Component {
       labels: [],
       starred: false
     }
-    this.setState({inbox: [newMessage, ...this.state.inbox]})
+    const result = await fetch(`http://localhost:8082/api/messages`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(newMessage)
+    })
+    const mess = await result.json()
+    this.setState({inbox: [mess, ...this.state.inbox]})
   }
+  
   showForm = () => {
     this.setState({showForm: !this.state.showForm})
   }
